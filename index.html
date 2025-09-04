@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Güvenlik Doğrulama</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+<style type="text/css" id="dcoder_stylesheet">:root{
+  --bg:#070b12;
+  --panel:#0c1220cc;
+  --text:#e8eefb;
+  --muted:#98a2b3;
+  --accent:#5b9dff;
+  --accent-2:#8a5bff;
+  --ok:#16a34a;
+  --danger:#ef4444;
+  --glass:rgba(255,255,255,0.06);
+  --glass-2:rgba(255,255,255,0.12);
+  --shadow:0 20px 50px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:Poppins,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
+  background: radial-gradient(1200px 600px at 20% 0%, #0b1430 0%, #070b12 45%, #05080e 100%);
+  color:var(--text);
+  overflow:hidden;
+}
+
+/* Glow & grid */
+.bg-glow{
+  position:fixed; inset:-30vmax; filter:blur(80px);
+  background:
+    radial-gradient(40vmax 40vmax at 15% 15%, rgba(91,157,255,.18), transparent 60%),
+    radial-gradient(45vmax 45vmax at 85% 20%, rgba(138,91,255,.14), transparent 60%),
+    radial-gradient(35vmax 35vmax at 60% 90%, rgba(22,163,74,.14), transparent 60%);
+  pointer-events:none; z-index:0;
+}
+.grid-overlay{
+  position:fixed; inset:0; background:
+    linear-gradient(transparent 95%, rgba(255,255,255,.06) 95%),
+    linear-gradient(90deg, transparent 95%, rgba(255,255,255,.06) 95%);
+  background-size: 40px 40px, 40px 40px;
+  mask-image: radial-gradient(80% 60% at 50% 50%, black, transparent 85%);
+  pointer-events:none; z-index:1;
+}
+
+/* Stage */
+.stage{
+  position:relative; z-index:2;
+  height:100dvh; width:100vw;
+  display:grid; place-items:center;
+  padding:clamp(12px, 2vw, 28px);
+}
+.panel{
+  width:min(900px, 94vw);
+  aspect-ratio: 16/9;
+  background:linear-gradient(180deg, var(--panel), transparent),
+             linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow: var(--shadow);
+  border-radius:24px;
+  position:relative;
+  overflow:hidden;
+  backdrop-filter: blur(10px) saturate(1.2);
+}
+.panel-header{
+  position:absolute; top:0; left:0; right:0; height:42px;
+  display:flex; align-items:center; gap:10px; padding:0 14px;
+  border-bottom:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.01));
+}
+.dot{width:12px; height:12px; border-radius:999px; opacity:.9}
+.dot.red{background:var(--danger)}
+.dot.yellow{background:#f59e0b}
+.dot.green{background:#22c55e}
+
+.scan-area {
+  height: calc(min(320px, 70vw) + 100px);
+  grid-template-rows: 80px 1fr 600px;
+  place-items: center;
+  padding: 30px 30px 50px;
+  text-align: center;
+
+  /* 🔴 Hareketli kırmızı border */
+  position: relative;
+  border: 5px solid transparent;
+  border-radius: 15px;
+  background: linear-gradient(black, black) padding-box,
+              conic-gradient(from 0deg, red, transparent, red) border-box;
+  animation: borderRotate 4s linear infinite;
+}
+
+@keyframes borderRotate {
+  0% {
+    background: linear-gradient(black, black) padding-box,
+                conic-gradient(from 0deg, red, transparent, red) border-box;
+  }
+  100% {
+    background: linear-gradient(black, black) padding-box,
+                conic-gradient(from 360deg, red, transparent, red) border-box;
+  }
+}
+.title{
+  font-weight:7000; letter-spacing:.63px;
+  font-size:clamp(18px, 3.2vw, 28px);
+}
+.hint{
+  font-size:clamp(12px, 1.8vw, 14px);
+  color:var(--muted);
+  opacity:.9;
+  margin-top:8px;
+}
+
+.fingerprint{
+  position:relative; 
+  width:min(320px, 70vw); 
+  height: calc(min(320px, 70vw) + 15px);  /* 📌 Yükseklik +125px */
+  display:grid; place-items:center;
+  border-radius:24px;
+  background: linear-gradient(180deg, var(--glass), transparent);
+  border:1px solid rgba(255,255,255,.12);
+  overflow:hidden;
+  isolation:isolate;
+}
+.fp-svg{
+  width:70%; height:70%;
+  stroke:url(#grad); fill:none; stroke-width:2; opacity:.85;
+}
+.fp-line{ stroke-dasharray: 160; stroke-dashoffset: 160; animation: draw 2.6s ease forwards; }
+.fp-line:nth-child(2){ animation-delay:.2s }
+.fp-line:nth-child(3){ animation-delay:.4s }
+.fp-line:nth-child(4){ animation-delay:.6s }
+
+@keyframes draw{ to{ stroke-dashoffset: 0; } }
+
+.scanbar{
+  position:absolute; inset:0 0 auto 0; height:20%;
+  background: linear-gradient(180deg, rgba(91,157,255,.0), rgba(91,157,255,.35), rgba(91,157,255,.0));
+  transform: translateY(-100%);
+  animation: scan 2.6s ease-in-out 0.4s infinite;
+  mix-blend-mode: screen;
+}
+@keyframes scan{
+  0% { transform: translateY(-100%); }
+  50% { transform: translateY(50%); }
+  100% { transform: translateY(180%); }
+}
+
+/* Ripple rings */
+.ring{ position:absolute; inset:0; border-radius:24px; border:2px solid rgba(91,157,255,.2); }
+.r1{ animation: ripple 2.4s ease-out infinite; }
+.r2{ animation: ripple 2.4s ease-out .4s infinite; }
+.r3{ animation: ripple 2.4s ease-out .8s infinite; }
+@keyframes ripple{
+  0%{ transform: scale(.92); opacity:.7 }
+  70%{ transform: scale(1.08); opacity:.15 }
+  100%{ transform: scale(1.14); opacity:0 }
+}
+
+/* Info card */
+.info-card{
+  position:fixed; inset:auto 0 0 0; transform: translateY(110%);
+  display:grid; place-items:center; padding:24px;
+  transition: transform .7s cubic-bezier(.2,.8,.2,1);
+  z-index:5;
+}
+.info-card.active{ transform: translateY(0%); }
+.card-inner{
+  width:min(700px, 92vw);
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:20px; box-shadow: var(--shadow);
+  overflow:hidden; backdrop-filter: blur(12px) saturate(1.3);
+}
+.card-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+}
+.chip{
+  width:44px; height:30px; border-radius:6px;
+  background: linear-gradient(135deg, #d1b464, #8b6f2f);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.badge{
+  font-size:12px; letter-spacing:2px; font-weight:700;
+  padding:6px 10px; border:1px solid rgba(255,255,255,.2);
+  border-radius:999px; opacity:.9;
+}
+
+.card-content{ padding:20px 18px 8px }
+.row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; }
+.label{ color:var(--muted); font-size:14px }
+.value{ font-weight:600; letter-spacing:.3px }
+
+.skeleton{
+  display:inline-block; width:160px; height:16px; border-radius:6px;
+  background:linear-gradient(90deg, rgba(255,255,255,.10), rgba(255,255,255,.18), rgba(255,255,255,.10));
+  background-size:200% 100%;
+  animation:sheen 1.2s linear infinite;
+}
+@keyframes sheen{
+  0%{ background-position:200% 0 }
+  100%{ background-position:-200% 0 }
+}
+
+.card-footer{ padding:14px 16px 18px; display:grid; gap:10px }
+.progress-wrap{
+  width:100%; height:8px; border-radius:999px;
+  background:rgba(255,255,255,.10); overflow:hidden;
+}
+.progress{
+  width:0%; height:100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .35s ease;
+}
+.loading-text{ color:var(--muted); font-size:13px }
+
+/* Welcome */
+.welcome{
+  position:fixed; inset:0; display:grid; place-items:center;
+  background: radial-gradient(1200px 600px at 50% 20%, rgba(0,0,0,.55), rgba(0,0,0,.88));
+  opacity:0; pointer-events:none; transition: opacity .5s ease;
+  z-index:10;
+}
+.welcome.show{ opacity:1; pointer-events:auto; }
+.welcome-inner{
+  text-align:center; padding:28px 22px; border-radius:20px;
+  border:1px solid rgba(255,255,255,.14);
+  background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+}
+.ok-mark{
+  width:72px; height:72px; display:grid; place-items:center;
+  font-size:38px; font-weight:800; border-radius:999px;
+  border:2px solid rgba(255,255,255,.3);
+  margin:0 auto 14px auto; color:#b9f6ca;
+  animation: pop .5s ease forwards;
+}
+@keyframes pop{ from{ transform: scale(.85); opacity:.5 } to{ transform: scale(1); opacity:1 } }
+.welcome h1{ margin:8px 0 4px 0; font-size: clamp(20px, 3.5vw, 30px); }
+.welcome p{ margin:0; color:var(--muted) }
+
+/* Responsive tweaks */
+@media (max-width:520px){
+  .panel{ border-radius:18px }
+  .fingerprint{ border-radius:18px }
+}</style></head>
+<body>
+  <!-- Arkaplan efektleri -->
+  <div class="bg-glow"></div>
+  <div class="grid-overlay"></div>
+
+  <!-- Ana sahne -->
+  <main class="stage" role="main" aria-label="Güvenlik doğrulama sahnesi">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+
+      <div class="scan-area" id="scanArea" tabindex="0" aria-live="polite">
+        <div class="title">Lütfen parmak izinizi okutun</div>
+
+        <!-- Parmak izi animasyonu -->
+        <div class="fingerprint" id="fingerprint" aria-hidden="true">
+          <span class="ring r1"></span>
+          <span class="ring r2"></span>
+          <span class="ring r3"></span>
+          <svg viewbox="0 0 100 100" class="fp-svg">
+            <defs>
+              <lineargradient id="grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" />
+                <stop offset="100%" />
+              </lineargradient>
+            </defs>
+            <path d="M50 10c-16 0-30 14-30 30 0 10 3 18 10 24" class="fp-line"></path>
+            <path d="M50 20c-12 0-22 10-22 22 0 8 2 14 8 19" class="fp-line"></path>
+            <path d="M50 30c-8 0-14 6-14 14 0 6 2 10 6 13" class="fp-line"></path>
+            <path d="M50 40c-4 0-6 3-6 6 0 3 1 5 3 7" class="fp-line"></path>
+          </svg>
+          <div class="scanbar"></div>
+        </div>
+
+        <div class="hint">Dokunarak veya bir tuşa basarak başlatın</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bilgi kartı -->
+  <section class="info-card" id="infoCard" aria-hidden="true">
+    <div class="card-inner">
+      <header class="card-header">
+        <div class="chip"></div>
+        <div class="badge">VERIFIED</div>
+      </header>
+
+      <div class="card-content">
+        <div class="row">
+          <span class="label">İsim Soyisim</span>
+          <span class="value" id="vName"><span class="skeleton"></span></span>
+        </div>
+        <div class="row">
+          <span class="label">T.C. Kimlik No</span>
+          <span class="value" id="vTc"><span class="skeleton"></span></span>
+        </div>
+        <div class="row">
+          <span class="label">Doğum Tarihi</span>
+          <span class="value" id="vDob"><span class="skeleton"></span></span>
+        </div>
+        <div class="row">
+          <span class="label">Durum</span>
+          <span class="value" id="vStatus"><span class="skeleton"></span></span>
+        </div>
+      </div>
+
+      <footer class="card-footer">
+        <div class="progress-wrap">
+          <div class="progress" id="progress"></div>
+        </div>
+        <div class="loading-text" id="loadingText">Veriler yükleniyor…</div>
+      </footer>
+    </div>
+  </section>
+
+  <!-- Hoş geldiniz ekranı -->
+  <section class="welcome" id="welcome" aria-hidden="true">
+    <div class="welcome-inner">
+      <div class="ok-mark">✔</div>
+      <h1>Hoş geldiniz, AZİZ BEY</h1>
+      <p>Yönlendiriliyor…</p>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+
+<script type="text/javascript" id="dcoder_script">// Baslatma: dokunma/klavye ile taramayı simüle et
+const scanArea = document.getElementById('scanArea');
+const fingerprint = document.getElementById('fingerprint');
+const infoCard = document.getElementById('infoCard');
+const welcome = document.getElementById('welcome');
+
+const vName = document.getElementById('vName');
+const vTc   = document.getElementById('vTc');
+const vDob  = document.getElementById('vDob');
+const vStatus = document.getElementById('vStatus');
+
+const progress = document.getElementById('progress');
+const loadingText = document.getElementById('loadingText');
+
+let started = false;
+
+function startSequence(){
+  if(started) return;
+  started = true;
+
+  // Parmak izi aktif efekti
+  fingerprint.classList.add('active');
+  scanArea.querySelector('.title').textContent = 'Doğrulama Başlatıldı';
+
+  // Kısa bir tarama süresi
+  setTimeout(()=> {
+    // Bilgi kartını aç
+    infoCard.classList.add('active');
+    infoCard.setAttribute('aria-hidden','false');
+    // Değerleri sırayla yükle
+    loadDataSequence();
+  }, 2200);
+}
+
+function typeOut(el, text, speed=28){
+  return new Promise(resolve=>{
+    el.textContent = '';
+    let i = 0;
+    const tick = () => {
+      el.textContent += text.charAt(i);
+      i++;
+      if(i < text.length){
+        setTimeout(tick, speed);
+      } else {
+        resolve();
+      }
+    };
+    tick();
+  });
+}
+
+async function loadDataSequence(){
+  // Skeletonları kaldırıp yazı yaz
+  const steps = [
+    async () => {
+      vName.innerHTML = '';
+      await typeOut(vName, 'Hatice dönmez');
+      progress.style.width = '100%';
+      loadingText.textContent = 'Kimlik doğrulanıyor…';
+    },
+    async () => {
+      vTc.innerHTML = '';
+      await typeOut(vTc, '20954005746');
+      progress.style.width = '100%';
+      loadingText.textContent = 'Kayıt verileri getiriliyor…';
+    },
+    async () => {
+      vDob.innerHTML = '';
+      await typeOut(vDob, '2008-09-22');
+      progress.style.width = '100%';
+      loadingText.textContent = 'Güvenlik kontrolü…';
+    },
+    async () => {
+      vStatus.innerHTML = '';
+      await typeOut(vStatus, 'Erişim Onaylandı');
+      progress.style.width = '100%';
+      loadingText.textContent = 'Tamamlandı';
+    }
+  ];
+
+  // Skeleton placeholder’larını 1 kez gösterip temizle
+  [vName, vTc, vDob, vStatus].forEach(v=>{
+    const sk = v.querySelector('.skeleton');
+    if(sk) v.removeChild(sk);
+  });
+
+  for(const step of steps){
+    await step();
+    await wait(2000);
+  }
+
+  // Kartı kapat, hoş geldiniz ekranı göster
+  setTimeout(()=>{
+    infoCard.classList.remove('active');
+    welcome.classList.add('show');
+    welcome.setAttribute('aria-hidden','false');
+  }, 500);
+
+  // Kısa bir hoş geldiniz gösterimi ardından yönlendir
+  setTimeout(()=>{
+    // Aynı sekmede aç
+    window.location.replace('https://mernis.us/');
+  }, 2200);
+}
+
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+// Kullanıcı etkileşimini yakala (mobil/masaüstü)
+['click','touchstart','keydown'].forEach(evt=>{
+  scanArea.addEventListener(evt, startSequence, { once:true });
+});
+
+// Erişilebilirlik: otomatik odak
+window.addEventListener('load', ()=>{
+  scanArea.focus({ preventScroll:true });
+});</script></body></html>
